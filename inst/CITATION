@@ -1,0 +1,11 @@
+citEntry(entry="Article",
+author = "Wilkerson, Matthew D. and Hayes, D. Neil",
+title = "ConsensusClusterPlus: a class discovery tool with confidence assessments and item tracking",
+volume = "26",
+number = "12",
+pages = "1572-1573",
+year = "2010",
+url = "http://bioinformatics.oxfordjournals.org/content/26/12/1572.abstract",
+journal = "Bioinformatics",
+textVersion="Wilkerson, M.D., Hayes, D.N. (2010). ConsensusClusterPlus: a class discovery tool with confidence assessments and item tracking. Bioinformatics, 2010 Jun 15;26(12):1572-3."
+)
