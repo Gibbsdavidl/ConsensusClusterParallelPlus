@@ -1,0 +1,2 @@
+# ConsensusClusterParallelPlus
+Parallelized version of the bioconductor package ConsensusClusterPlus
