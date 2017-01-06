@@ -1,8 +1,8 @@
-ConsensusClusterParallelPlus <- function(d = NULL, maxK = 3, reps = 10, cores = 1,
+ConsensusClusterParallelPlusTest <- function(d = NULL, maxK = 3, reps = 10, cores = 1,
     pItem = 0.8, pFeature = 1, clusterAlg = "hc", title = "untitled_consensus_cluster",
     innerLinkage = "average", finalLinkage = "average", distance = "pearson", ml = NULL,
     tmyPal = NULL, seed = NULL, plot = NULL, writeTable = FALSE, weightsItem = NULL,
-    weightsFeature = NULL, verbose = F, corUse = "everything") {
+    weightsFeature = NULL, verbose = F, corUse = "everything", returnML=F) {
     ## description: runs consensus subsamples
     require(fastcluster)
 
@@ -64,8 +64,10 @@ ConsensusClusterParallelPlus <- function(d = NULL, maxK = 3, reps = 10, cores = 
         ml <- ccRun(d = d, maxK = maxK, repCount = reps, coreCount = cores, diss = inherits(d,
             "dist"), pItem = pItem, pFeature = pFeature, innerLinkage = innerLinkage,
             clusterAlg = clusterAlg, weightsFeature = weightsFeature, weightsItem = weightsItem,
-            distance = distance, verbose = verbose, corUse = corUse)
-
+            distance = distance, verbose = verbose, corUse = corUse, returnML = returnML)
+        if (returnML == T) {
+          return(ml)
+        }
     }
     res = list()
 
@@ -290,7 +292,7 @@ calcICL = function(res, title = "untitled_consensus_cluster", plot = NULL, write
 ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = inherits(d,
     "dist"), pItem = NULL, pFeature = NULL, innerLinkage = NULL, distance = NULL,
     clusterAlg = NULL, weightsItem = NULL, weightsFeature = NULL, verbose = NULL,
-    corUse = NULL) {
+    corUse = NULL, returnML=F) {
     m = vector(mode = "list", repCount)
     ml = vector(mode = "list", maxK)
 
@@ -352,18 +354,62 @@ ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = 
             clusterAlg, distance, innerLinkage, maxK, verbose, mConsist, ml)
     }, mc.cores = coreCount)
 
+    #if (returnML==T) {
+    #  return(parRes)
+    #}
+
+  require(Rcpp)
+  require(inline)
+  require(RcppArmadillo)
+
+  src <- "
+  Rcpp::NumericVector clusterAssignments(a);
+  Rcpp::NumericMatrix bm(b);
+  arma::mat m = Rcpp::as<arma::mat>(bm);
+  Rcpp::NumericVector sampleKey(c);
+  Rcpp::NumericVector kmax(d);
+  int kint = kmax[0];
+
+  Rcpp::List cls(kint); // list of binary vectors of sample memebership
+  int n = bm.ncol(); // number of samples
+
+  for (int ki=1; ki < kint; ++ki) {  // for each cluster
+    Rcpp::NumericVector x(n);            //   vector for each sample in n
+    for (int si=0; si < clusterAssignments.size(); ++si) {  // for each sample
+      if (clusterAssignments[si] == ki) {  // if the sample is in the cluster
+        x[(sampleKey[si])-1] = 1;
+      } else {
+        x[(sampleKey[si])-1] = 0;
+      }
+    }
+    cls[ki] = x;
+  }
+
+  for (int ki=2; ki <= kint; ++ki) { // for each cluster
+    arma::mat xx(n,n,arma::fill::zeros);  // empty matix
+    IntegerVector a(cls[(ki-1)]);
+    for (int i=0; i < n; ++i) {
+      for (int j=0; j < n; ++j) {
+        xx(i,j) = a[i] * a[j];
+      }
+    }
+    m = m+xx;
+  }
+  return(Rcpp::wrap(m));
+    "
+
+    fun <- cxxfunction(signature(a = "numeric", b = "matrix", c = "numeric", d = "numeric"), src, plugin = "RcppArmadillo")
 
     for (r in 1:repCount) {
         for (k in 2:maxK) {
+          ## mCount is possible number of times that two sample occur in same random sample,
+          ## independent of k mCount stores number of times a sample pair was sampled
+          ## together.
+          mCount <- fun(rep(1, length(parRes[[r]][[1]][[3]])), mCount, parRes[[r]][[1]][[3]], maxK)
+          ml[[k]] <- fun(parRes[[r]][[k]], ml[[k]], parRes[[r]][[1]][[3]], maxK)
 
-            ## mCount is possible number of times that two sample occur in same random sample,
-            ## independent of k mCount stores number of times a sample pair was sampled
-            ## together.
-
-            mCount <- connectivityMatrix(rep(1, length(parRes[[r]][[1]][[3]])), mCount,
-                parRes[[r]][[1]][[3]])
-
-            ml[[k]] <- connectivityMatrix(parRes[[r]][[k]], ml[[k]], parRes[[r]][[1]][[3]])
+          #mCount <- connectivityMatrix(rep(1, length(parRes[[r]][[1]][[3]])), mCount, parRes[[r]][[1]][[3]])
+          #ml[[k]] <- connectivityMatrix(parRes[[r]][[k]], ml[[k]], parRes[[r]][[1]][[3]])
         }
     }
 
@@ -484,10 +530,17 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
 connectivityMatrix <- function(clusterAssignments, m, sampleKey) {
     ## input: named vector of cluster assignments, matrix to add connectivities
     ## output: connectivity matrix
+
+    # have a list of cluster assignments and a list of sample IDs
     names(clusterAssignments) <- sampleKey
+
+    # for each possible cluster assignment
+    #   make a vector of samples that are in that cluster
     cls <- lapply(unique(clusterAssignments), function(i) as.numeric(names(clusterAssignments[clusterAssignments %in% i])))  #list samples by clusterId
 
+    # for each cluster
     for (i in 1:length(cls)) {
+
         nelts <- 1:ncol(m)
         cl <- as.numeric(nelts %in% cls[[i]])  ## produces a binary vector
         updt <- outer(cl, cl)  #product of arrays with * function; with above indicator (1/0) statement updates all cells to indicate the sample pair was observed int the same cluster;
@@ -495,6 +548,7 @@ connectivityMatrix <- function(clusterAssignments, m, sampleKey) {
     }
     return(m)
 }
+
 
 
 
