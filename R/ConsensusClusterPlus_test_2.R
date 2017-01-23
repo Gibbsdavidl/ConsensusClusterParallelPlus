@@ -516,7 +516,7 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
 
     # fill up mCount matrix using resK[[1]] or sample_x
     # scale the mCount matrix by k
-    mCount[samps, samps] <- k
+    mCount[samps, samps] <- (k-1)
     ml[[1]] <- mCount
     return(ml)
 }  # end eachRep
