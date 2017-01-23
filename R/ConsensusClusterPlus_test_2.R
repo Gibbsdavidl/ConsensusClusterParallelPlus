@@ -504,16 +504,21 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
     # ml is a matrix of nodes x nodes
     # where the element is 1 if both nodes are in the same assignment
     # fill up matrices of ml using resKs
-    for (ki in 2:maxK) {
-        for (ix in 1:length(sample_x)) {
-            for (jx in 1:length(sample_x)) {
-                if (resKs[[ki]][ix] == resKs[[ki]][jx]) { # in the same cluster
-                    ml[[ki]][samps[ix], samps[jx]] <- 1
-                }
-            }
-        }
-    }
+    #for (ki in 2:maxK) {
+    #    for (ix in 1:length(sample_x)) {
+    #        for (jx in 1:length(sample_x)) {
+    #            if (resKs[[ki]][ix] == resKs[[ki]][jx]) { # in the same cluster
+    #                ml[[ki]][samps[ix], samps[jx]] <- 1
+    #            }
+    #        }
+    #    }
+    #}
 
+    for (ki in 2:maxK) {
+        mi <- connectivityMatrix(resKs[[ki]], ml[[ki]], samps)
+        ml[[k]] <- mi
+    }
+    
     # fill up mCount matrix using resK[[1]] or sample_x
     # scale the mCount matrix by k
     mCount[samps, samps] <- (k-1)
@@ -535,7 +540,6 @@ connectivityMatrix <- function(clusterAssignments, m, sampleKey) {
 
     # for each cluster
     for (i in 1:length(cls)) {
-
         nelts <- 1:ncol(m)
         cl <- as.numeric(nelts %in% cls[[i]])  ## produces a binary vector
         updt <- outer(cl, cl)  #product of arrays with * function; with above indicator (1/0) statement updates all cells to indicate the sample pair was observed int the same cluster;
