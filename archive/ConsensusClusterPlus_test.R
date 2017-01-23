@@ -1,4 +1,4 @@
-ConsensusClusterParallelPlusTest2 <- function(d = NULL, maxK = 3, reps = 10, cores = 1,
+ConsensusClusterParallelPlusTest <- function(d = NULL, maxK = 3, reps = 10, cores = 1,
     pItem = 0.8, pFeature = 1, clusterAlg = "hc", title = "untitled_consensus_cluster",
     innerLinkage = "average", finalLinkage = "average", distance = "pearson", ml = NULL,
     tmyPal = NULL, seed = NULL, plot = NULL, writeTable = FALSE, weightsItem = NULL,
@@ -293,17 +293,11 @@ ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = 
     "dist"), pItem = NULL, pFeature = NULL, innerLinkage = NULL, distance = NULL,
     clusterAlg = NULL, weightsItem = NULL, weightsFeature = NULL, verbose = NULL,
     corUse = NULL, returnML=F) {
-
     m = vector(mode = "list", repCount)
     ml = vector(mode = "list", maxK)
+
     n <- ifelse(diss, ncol(as.matrix(d)), ncol(d))
-
-    ## mCount is possible number of times that two sample occur in same random sample,
-    ## independent of k mCount stores number of times a sample pair was sampled
-    ## together.
     mCount = mConsist = matrix(c(0), ncol = n, nrow = n)
-
-    ## ml
     ml[[1]] = c(0)
     for (k in 2:maxK) {
         ml[[k]] = mConsist  #initialize
@@ -355,32 +349,73 @@ ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = 
 
 
     require(parallel)
-    parsteps <- seq(from=1, to=repCount, by=coreCount)
-    for (paridx in parsteps) {
+    parRes <- mclapply(X = 1:repCount, FUN = function(xi) {
+        eachRep(xi, d, pItem, pFeature, weightsItem, weightsFeature, main.dist.obj,
+            clusterAlg, distance, innerLinkage, maxK, verbose, mConsist, ml)
+    }, mc.cores = coreCount)
 
-        # do a set of clusterings
-        parRes <- mclapply(X = 1:repCount, FUN = function(xi) {
-            eachRep(xi, d, pItem, pFeature, weightsItem, weightsFeature, main.dist.obj,
-                clusterAlg, distance, innerLinkage, maxK, verbose)
-        }, mc.cores = coreCount)
+    #if (returnML==T) {
+    #  return(parRes)
+    #}
 
-        if (returnML) {
-            return(parRes)
+  require(Rcpp)
+  require(inline)
+  require(RcppArmadillo)
+
+  src <- "
+
+  // for K=k_i
+  //   keep summing over reps,
+  //     Did sample i co-cluster with sample j
+
+  Rcpp::NumericVector clusterAssignments(a);   // cluster assignment
+  Rcpp::NumericMatrix bm(b);                   // mCount
+  arma::mat m = Rcpp::as<arma::mat>(bm);       // mCount arma matrix
+  Rcpp::NumericVector sampleKey(c);            // sample key to cluster assignment
+  Rcpp::NumericVector kmax(d);                 // max K
+  int kint = kmax[0];
+
+  Rcpp::List cls(kint); // list of binary vectors of sample memebership
+  int n = bm.ncol();    // number of samples
+
+  for (int ki=1; ki < kint; ++ki) {      // for each cluster
+    Rcpp::NumericVector x(n);            //    vector for each sample in n
+    for (int si=0; si < clusterAssignments.size(); ++si) {  // for each sample
+      if (clusterAssignments[si] == ki) {  // if the sample is in the cluster
+        x[(sampleKey[si])-1] = 1;
+      } else {
+        x[(sampleKey[si])-1] = 0;
+      }
+    }
+    cls[ki] = x;
+  }
+
+  for (int ki=2; ki <= kint; ++ki) { // for each cluster
+    arma::mat xx(n,n,arma::fill::zeros);  // empty matix
+    IntegerVector a(cls[(ki-1)]);
+    for (int i=0; i < n; ++i) {
+      for (int j=0; j < n; ++j) {
+        xx(i,j) = a[i] * a[j];
+      }
+    }
+    m = m+xx;
+  }
+  return(Rcpp::wrap(m));
+    "
+
+    fun <- cxxfunction(signature(a = "numeric", b = "matrix", c = "numeric", d = "numeric"), src, plugin = "RcppArmadillo")
+
+    for (r in 1:repCount) {
+        for (k in 2:maxK) {
+          ## mCount is possible number of times that two sample occur in same random sample,
+          ## independent of k mCount stores number of times a sample pair was sampled
+          ## together.
+          mCount <- fun(rep(1, length(parRes[[r]][[1]][[3]])), mCount, parRes[[r]][[1]][[3]], maxK)
+          ml[[k]] <- fun(parRes[[r]][[k]], ml[[k]], parRes[[r]][[1]][[3]], maxK)
+
+          #mCount <- connectivityMatrix(rep(1, length(parRes[[r]][[1]][[3]])), mCount, parRes[[r]][[1]][[3]])
+          #ml[[k]] <- connectivityMatrix(parRes[[r]][[k]], ml[[k]], parRes[[r]][[1]][[3]])
         }
-
-        # then extract and sum up the list
-        for (lp in 1:coreCount) {
-            # sum up the mCount, over k, within the call to eachRep
-            mCount <- parRes[[lp]][[1]] + mCount
-
-            for (k in 2:maxK) {
-                ml[[k]] <- ml[[k]] + parRes[[lp]][[k]]
-            }
-        }
-
-        # then clear the memory
-        parRes <- NULL
-        gc()
     }
 
     ## consensus fraction
@@ -399,19 +434,13 @@ ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = 
 
 
 eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dist.obj,
-    clusterAlg, distance, innerLinkage, maxK, verbose) {
+    clusterAlg, distance, innerLinkage, maxK, verbose, mConsist, ml) {
+    # for (i in 1:repCount){
 
     require(fastcluster)
 
+    print(i)
     resKs <- list()
-
-    n <- ifelse(d, ncol(as.matrix(d)), ncol(d))
-    mCount = mConsist = matrix(c(0), ncol = n, nrow = n)
-    ml = vector(mode = "list", maxK)
-    ml[[1]] = c(0)
-    for (k in 2:maxK) {
-        ml[[k]] = mConsist  #initialize
-    }
 
     ## take expression matrix sample, samples and genes
     sample_x = sampleCols(d, pItem, pFeature, weightsItem, weightsFeature)
@@ -497,33 +526,9 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
         # add to the tally was here
         resKs[[k]] <- this_assignment
     }  # End Ks
-
-    resKs[[1]] <- sample_x[[3]]
-    samps <- sample_x[[3]]
-
-    # ml is a matrix of nodes x nodes
-    # where the element is 1 if both nodes are in the same assignment
-    # fill up matrices of ml using resKs
-    #for (ki in 2:maxK) {
-    #    for (ix in 1:length(sample_x)) {
-    #        for (jx in 1:length(sample_x)) {
-    #            if (resKs[[ki]][ix] == resKs[[ki]][jx]) { # in the same cluster
-    #                ml[[ki]][samps[ix], samps[jx]] <- 1
-    #            }
-    #        }
-    #    }
-    #}
-
-    for (ki in 2:maxK) {
-        mi <- connectivityMatrix(resKs[[ki]], ml[[ki]], samps)
-        ml[[k]] <- mi
-    }
-    
-    # fill up mCount matrix using resK[[1]] or sample_x
-    # scale the mCount matrix by k
-    mCount[samps, samps] <- (k-1)
-    ml[[1]] <- mCount
-    return(ml)
+    resKs[[1]] <- sample_x
+    gc()
+    return(resKs)
 }  # end eachRep
 
 
@@ -540,6 +545,7 @@ connectivityMatrix <- function(clusterAssignments, m, sampleKey) {
 
     # for each cluster
     for (i in 1:length(cls)) {
+
         nelts <- 1:ncol(m)
         cl <- as.numeric(nelts %in% cls[[i]])  ## produces a binary vector
         updt <- outer(cl, cl)  #product of arrays with * function; with above indicator (1/0) statement updates all cells to indicate the sample pair was observed int the same cluster;
