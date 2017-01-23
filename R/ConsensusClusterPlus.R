@@ -17,7 +17,7 @@ ConsensusClusterPlus <- function( d=NULL,
                                   weightsFeature=NULL,
                                   verbose=F,
 				  corUse="everything" ) {
-  ##description: runs consensus subsamples 
+  ##description: runs consensus subsamples
   if(is.null(seed)==TRUE){
     seed=timeSeed = as.numeric(Sys.time())
   }
@@ -27,7 +27,7 @@ ConsensusClusterPlus <- function( d=NULL,
 
 
   if(is.null(ml)==TRUE){
-    
+
     if ( ! class( d ) %in% c( "dist", "matrix", "ExpressionSet" ) ) {
       stop("d must be a matrix, distance object or ExpressionSet (eset object)")
     }
@@ -39,9 +39,9 @@ ConsensusClusterPlus <- function( d=NULL,
         attr( d, "method" ) <- distance <- "unknown - user-specified"
       }
       if ( is.null( distance ) || ( distance != attr( d, "method" ) ) ) {
-        distance <- attr( d, "method" ) 
+        distance <- attr( d, "method" )
       }
-      
+
       if ( ( ! is.null( pFeature ) ) && ( pFeature < 1 ) ) {
         message( "Cannot use the pFeatures parameter when specifying a distance matrix as the data object\n" )
         pFeature <- 1
@@ -83,22 +83,22 @@ ConsensusClusterPlus <- function( d=NULL,
                  weightsItem=weightsItem,
                  distance=distance,
                  verbose=verbose,
-		 corUse=corUse)
+		               corUse=corUse)
   }
   res=list();
-  
+
   ##make results directory
   if((is.null(plot)==FALSE | writeTable) & !file.exists(paste(title,sep=""))){
     dir.create(paste(title,sep=""))
   }
-  
+
   ##write log file
   log <- matrix( ncol=2,
                  byrow=T,
                  c("title",title,
                    "maxK",maxK,
-                   "input matrix rows",ifelse ( inherits( d, "matrix" ), nrow(d), "dist-mat" ), 
-                   "input matrix columns",ifelse ( inherits( d, "matrix" ), ncol(d), ncol( as.matrix(d) ) ), 
+                   "input matrix rows",ifelse ( inherits( d, "matrix" ), nrow(d), "dist-mat" ),
+                   "input matrix columns",ifelse ( inherits( d, "matrix" ), ncol(d), ncol( as.matrix(d) ) ),
                    "number of bootstraps",reps,
                    "item subsampling proportion",pItem,
                    "feature subsampling proportion",ifelse( is.null(pFeature), 1, pFeature ),
@@ -123,11 +123,11 @@ ConsensusClusterPlus <- function( d=NULL,
     pdf(onefile=TRUE, paste(title,"/","consensus.pdf",sep=""))
   }else if (plot=="ps"){
     postscript(onefile=TRUE, paste(title,"/","consensus.ps",sep=""))
-  }	
-  
+  }
+
   colorList=list()
   colorM = rbind() #matrix of colors.
-  
+
   #18 colors for marking different clusters
   thisPal <- c("#A6CEE3","#1F78B4","#B2DF8A","#33A02C","#FB9A99","#E31A1C","#FDBF6F","#FF7F00","#CAB2D6","#6A3D9A","#FFFF99","#B15928",
                "#bd18ea", #magenta
@@ -144,7 +144,7 @@ ConsensusClusterPlus <- function( d=NULL,
                "#4d0776", #dark purple
                "#ffffff" #white
                )
-  
+
   ##plot scale
   colBreaks=NA
   if(is.null(tmyPal)==TRUE){
@@ -163,7 +163,7 @@ ConsensusClusterPlus <- function( d=NULL,
     }
     fm = ml[[tk]]
     hc=hclust( as.dist( 1 - fm ), method=finalLinkage);
-    message("clustered")	
+    message("clustered")
     ct = cutree(hc,tk)
     names(ct) = colnames(d)
     if(class(d)=="dist"){
@@ -175,14 +175,14 @@ ConsensusClusterPlus <- function( d=NULL,
     pc = c
     pc=pc[hc$order,] #pc is matrix for plotting, same as c but is row-ordered and has names and extra row of zeros.
 
-    
+
 
     if(!is.null(plot) && plot=="pngBMP"){
          pc = pc[,hc$order ] #mod for no tree
         pc = rbind(pc,0)
 	#no dendrogram if pngBMP
 	oc = colorList[[1]][hc$order] #mod for no tree
-	heatmap(pc, Colv = NA, Rowv = NA, symm = FALSE, scale = "none", col = tmyPal, na.rm = TRUE, labRow = F, labCol = F, mar = c(5, 5), main = paste("consensus matrix k=", 
+	heatmap(pc, Colv = NA, Rowv = NA, symm = FALSE, scale = "none", col = tmyPal, na.rm = TRUE, labRow = F, labCol = F, mar = c(5, 5), main = paste("consensus matrix k=",
                 tk, sep = ""), ColSideCol = oc)
     }else{
         pc = rbind(pc,0)
@@ -193,7 +193,7 @@ ConsensusClusterPlus <- function( d=NULL,
     legend("topright",legend=unique(ct),fill=unique(colorList[[1]]),horiz=FALSE )
 
     res[[tk]] = list(consensusMatrix=c,consensusTree=hc,consensusClass=ct,ml=ml[[tk]],clrs=colorList)
-    colorM = rbind(colorM,colorList[[1]]) 
+    colorM = rbind(colorM,colorList[[1]])
   }
   CDF(ml)
   clusterTrackingPlot(colorM[,res[[length(res)]]$consensusTree$order])
@@ -217,7 +217,7 @@ calcICL = function(res,title="untitled_consensus_cluster",plot=NULL,writeTable=F
   cci = rbind()
   sumRes=list()
   colorsArr=c()
-  
+
   #make results directory
   if((is.null(plot)==FALSE | writeTable) & !file.exists(paste(title,sep=""))){
 	dir.create(paste(title,sep=""))
@@ -246,7 +246,7 @@ calcICL = function(res,title="untitled_consensus_cluster",plot=NULL,writeTable=F
 	nk = length(items)
 	mk = sum( m[items,items], na.rm=T)/((nk*(nk-1))/2)
 	cc=rbind(cc,c(k,ci,mk)) #cluster-consensus
-	
+
       for (ei in rev(res[[2]]$consensusTree$order) ){
 		denom = if (ei %in% items) { nk - 1} else { nk }
         	mei = sum( c(m[ei,items],m[items,ei]), na.rm=T)/denom  # mean item consensus to a cluster.
@@ -254,11 +254,11 @@ calcICL = function(res,title="untitled_consensus_cluster",plot=NULL,writeTable=F
       }
       eiCols = c(eiCols, rep(ci,length(o$consensusClass)) )
     }
-	  
+
 	  cck = cci[which(cci[,1]==k),] #only plot the new k data.
 
 	  #group by item, order by cluster i
-	  w=lapply(split(cck,cck[,3]), function(x) { y=matrix(unlist(x),ncol=4); y[order(y[,2]),4] }) 
+	  w=lapply(split(cck,cck[,3]), function(x) { y=matrix(unlist(x),ncol=4); y[order(y[,2]),4] })
 	  q = matrix(as.numeric(unlist(w)),ncol=length(w),byrow=F)
 	  q = q[,res[[2]]$consensusTree$order] #order by leave order of k=2
  	  #q is a matrix of k rows and sample columns, values are item consensus of sample to the cluster.
@@ -292,8 +292,8 @@ calcICL = function(res,title="untitled_consensus_cluster",plot=NULL,writeTable=F
   colnames(cci) = c("k","cluster","item","itemConsensus")
   cci[,"item"] = names(res[[2]]$consensusClass)[ cci[,"item"] ]
   #type cci
-  cci = data.frame( k=as.numeric(cci[,"k"]), cluster=as.numeric(cci[,"cluster"]), item=cci[,"item"], itemConsensus=as.numeric(cci[,"itemConsensus"])) 
-  
+  cci = data.frame( k=as.numeric(cci[,"k"]), cluster=as.numeric(cci[,"cluster"]), item=cci[,"item"], itemConsensus=as.numeric(cci[,"itemConsensus"]))
+
   #write to file.
   if(writeTable){
 	write.csv(file=paste(title,"/",title,".summary.cluster.consensus.csv",sep=""),row.names=F, cc)
@@ -326,7 +326,7 @@ ccRun <- function( d=d,
 
   acceptable.distance <- c( "euclidean", "maximum", "manhattan", "canberra", "binary","minkowski",
                       "pearson", "spearman" )
-  
+
   main.dist.obj <- NULL
   if ( diss ){
     main.dist.obj <- d
@@ -356,14 +356,14 @@ ccRun <- function( d=d,
 	}else{
           main.dist.obj <- dist( t(d), method=distance )
         }
-        attr( main.dist.obj, "method" ) <- distance  
+        attr( main.dist.obj, "method" ) <- distance
       } else stop("unsupported distance specified.")
     } else {
       ## pFeature < 1 or a weightsFeature != NULL
       ## since d is a data matrix, the user wants to sample over the gene features, so main.dist.obj is left as NULL
     }
   }
- 
+
 
   for (i in 1:repCount){
     if(verbose){
@@ -388,7 +388,7 @@ ccRun <- function( d=d,
       ##   3) both
       ## so we can't use a main distance object and for every iteration, we will have to re-calculate either
       ##   1) the distance matrix (because we're also sampling the features as well), or
-      ##   2) the submat (if using km) 
+      ##   2) the submat (if using km)
 
       if ( clusterAlg != "km" )  {
         if ( ! distance %in% acceptable.distance &  ( class(try(get(distance),silent=T))!="function")  ) stop("unsupported distance.")
@@ -401,7 +401,7 @@ ccRun <- function( d=d,
             this_dist <- dist( t( sample_x$submat ), method= distance  )
 	  }
 	}
-        attr( this_dist, "method" ) <- distance  
+        attr( this_dist, "method" ) <- distance
       } else {
         ## if we're not sampling the features, then grab the colslice
         if ( is.null( pFeature ) ||
@@ -411,12 +411,12 @@ ccRun <- function( d=d,
           if ( is.na( sample_x$submat ) ) {
             stop( "error submat is NA" )
           }
-          
+
           this_dist <- sample_x$submat
-        } 
+        }
       }
     }
-                  
+
     ## cluster samples for HC.
     this_cluster=NA
     if(clusterAlg=="hc"){
@@ -426,9 +426,9 @@ ccRun <- function( d=d,
     ##mCount stores number of times a sample pair was sampled together.
     mCount <- connectivityMatrix( rep( 1,length(sample_x[[3]])),
                                   mCount,
-                                  sample_x[[3]] ) 
+                                  sample_x[[3]] )
 
-    ##use samples for each k		
+    ##use samples for each k
     for (k in 2:maxK){
       if(verbose){
         message(paste("  k =",k))
@@ -442,7 +442,7 @@ ccRun <- function( d=d,
         this_assignment = cutree(this_cluster,k)
 
       }else if(clusterAlg=="kmdist"){
-	this_assignment = kmeans(this_dist, k, iter.max = 10, nstart = 1, algorithm = c("Hartigan-Wong") )$cluster
+        this_assignment = kmeans(this_dist, k, iter.max = 10, nstart = 1, algorithm = c("Hartigan-Wong") )$cluster
 
       }else if(clusterAlg=="km"){
         ##this_dist should now be a matrix corresponding to the result from sampleCols
@@ -455,19 +455,19 @@ ccRun <- function( d=d,
         this_assignment <- pam( x=this_dist,
                                 k,
                                 diss=TRUE,
-                                metric=distance, 
+                                metric=distance,
                                 cluster.only=TRUE )
       } else{
         ##optional cluterArg Hook.
         this_assignment <- get(clusterAlg)(this_dist, k)
       }
-      ##add to tally				
+      ##add to tally
       ml[[k]] <- connectivityMatrix( this_assignment,
                                      ml[[k]],
                                      sample_x[[3]] )
     }
   }
-	
+
 
   ##consensus fraction
   res = vector(mode="list",maxK)
@@ -486,7 +486,7 @@ ccRun <- function( d=d,
 connectivityMatrix <- function( clusterAssignments, m, sampleKey){
   ##input: named vector of cluster assignments, matrix to add connectivities
   ##output: connectivity matrix
-  names( clusterAssignments ) <- sampleKey 
+  names( clusterAssignments ) <- sampleKey
   cls <- lapply( unique( clusterAssignments ), function(i) as.numeric( names( clusterAssignments[ clusterAssignments %in% i ] ) ) )  #list samples by clusterId
 
   for ( i in 1:length( cls ) ) {
@@ -542,7 +542,7 @@ CDF=function(ml,breaks=100){
   for (i in 2:length(ml)){
     v=triangle(ml[[i]],mode=1)
 
-    #empirical CDF distribution. default number of breaks is 100    
+    #empirical CDF distribution. default number of breaks is 100
     h = hist(v, plot=FALSE, breaks=seq(0,1,by=1/breaks))
     h$counts = cumsum(h$counts)/sum(h$counts)
 
@@ -588,7 +588,7 @@ setClusterColors = function(past_ct,ct,colorU,colorList){
 		m=mo/apply(mo,1,sum)
 			for(tci in 1:ncol(m)){ # for each cluster
 				maxC = max(m[,tci])
-				pci = which(m[,tci] == maxC)				
+				pci = which(m[,tci] == maxC)
 				if( sum(m[,tci]==maxC)==1 & max(m[pci,])==maxC & sum(m[pci,]==maxC)==1  )  {
 				#if new column maximum is unique, same cell is row maximum and is also unique
 				##Note: the greatest of the prior clusters' members are the greatest in a current cluster's members.
@@ -607,7 +607,7 @@ clusterTrackingPlot = function(m){
   #input: m - matrix where rows are k, columns are samples, and values are cluster assignments.
   plot(NULL,xlim=c(-0.1,1),ylim=c(0,1),axes=FALSE,xlab="samples",ylab="k",main="tracking plot")
   for(i in 1:nrow(m)){
-    rect(  xleft=seq(0,1-1/ncol(m),by=1/ncol(m)),  ybottom=rep(1-i/nrow(m),ncol(m)) , xright=seq(1/ncol(m),1,by=1/ncol(m)), ytop=rep(1-(i-1)/nrow(m),ncol(m)), col=m[i,],border=NA)   
+    rect(  xleft=seq(0,1-1/ncol(m),by=1/ncol(m)),  ybottom=rep(1-i/nrow(m),ncol(m)) , xright=seq(1/ncol(m),1,by=1/ncol(m)), ytop=rep(1-(i-1)/nrow(m),ncol(m)), col=m[i,],border=NA)
   }
   #hatch lines to indicate samples
   xl = seq(0,1-1/ncol(m),by=1/ncol(m))
@@ -620,30 +620,30 @@ triangle = function(m,mode=1){
   #mode=1 for CDF, vector of lower triangle.
   #mode==3 for full matrix.
   #mode==2 for calcICL; nonredundant half matrix coun
-  #mode!=1 for summary 
+  #mode!=1 for summary
   n=dim(m)[1]
   nm = matrix(0,ncol=n,nrow=n)
   fm = m
 
 
   nm[upper.tri(nm)] = m[upper.tri(m)] #only upper half
-  
+
   fm = t(nm)+nm
   diag(fm) = diag(m)
-  
+
   nm=fm
   nm[upper.tri(nm)] = NA
   diag(nm) = NA
   vm = m[lower.tri(nm)]
-  
+
   if(mode==1){
-    return(vm) #vector 		
+    return(vm) #vector
   }else if(mode==3){
     return(fm) #return full matrix
   }else if(mode == 2){
     return(nm) #returns lower triangle and no diagonal. no double counts.
   }
-  
+
 }
 
 
@@ -657,7 +657,7 @@ rankedBarPlot=function(d,myc,cc,title){
 	  colors = rbind(colors,order(d[,i],na.last=F))
 	}
 	maxH = max(c(1.5,apply(byRank,2,sum)),na.rm=T) #maximum height of graph
-	
+
 	#barplot largest to smallest so that smallest is in front.
 	barp = barplot( apply(byRank,2,sum) ,  col=myc[colors[,1]] ,space=spaceh,ylim=c(0,maxH),main=paste("item-consensus", title),border=NA,las=1  )
 	for(i in 2:nrow(byRank)){
