@@ -254,7 +254,7 @@ ccRunPar <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss
         parRes <- mclapply(X = 1:repCount, FUN = function(xi) {
             eachRep(xi, d, pItem, pFeature, weightsItem, weightsFeature, main.dist.obj,
                 clusterAlg, distance, innerLinkage, maxK, verbose)
-        }, mc.cores = coreCount)
+        }, mc.cores = coreCount, mc.preschedule=F)
 
         if (returnML) {
             return(parRes)
