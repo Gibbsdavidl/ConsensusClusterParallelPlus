@@ -193,12 +193,13 @@ ccRunPar <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss
     ## mCount is possible number of times that two sample occur in same random sample,
     ## independent of k mCount stores number of times a sample pair was sampled
     ## together.
-    mCount = mConsist = matrix(c(0), ncol = n, nrow = n)
+    require(Matrix)
+    mCount = mConsist = Matrix(c(0), ncol = n, nrow = n, sparse = TRUE)
 
     ## ml
     ml[[1]] = c(0)
     for (k in 2:maxK) {
-        ml[[k]] = mConsist  #initialize
+        ml[[k]] = mConsist  #initialize with list of sparse Matrix
     }
 
     if (is.null(distance))
@@ -250,11 +251,13 @@ ccRunPar <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss
     parsteps <- seq(from=1, to=repCount, by=coreCount)
     for (paridx in parsteps) {
 
-        # do a set of clusterings
-        parRes <- mclapply(X = 1:repCount, FUN = function(xi) {
+        print(paridx)
+
+        # do a set of clusterings, one for each core
+        parRes <- mclapply(X = 1:coreCount, FUN = function(xi) {
             eachRep(xi, d, pItem, pFeature, weightsItem, weightsFeature, main.dist.obj,
                 clusterAlg, distance, innerLinkage, maxK, verbose)
-        }, mc.cores = coreCount, mc.preschedule=F)
+        }, mc.cores = coreCount)
 
         if (returnML) {
             return(parRes)
@@ -273,6 +276,12 @@ ccRunPar <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss
         # then clear the memory
         parRes <- NULL
         gc()
+    }
+
+    # Convert sparse Matrices back to reg matrix
+    mCount <- as.matrix(mCount)
+    for (ki in 2:maxK) {
+        ml[[ki]] <- as.matrix(ml[[ki]])
     }
 
     ## consensus fraction
@@ -294,15 +303,19 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
     clusterAlg, distance, innerLinkage, maxK, verbose) {
 
     require(fastcluster)
+    require(Matrix)
 
+    #init
     resKs <- list()
 
-    n <- ifelse(d, ncol(as.matrix(d)), ncol(d))
-    mCount = mConsist = matrix(c(0), ncol = n, nrow = n)
-    ml = vector(mode = "list", maxK)
-    ml[[1]] = c(0)
+    n <- ncol(d) ### What about distance matrices
+
+    mCount <- Matrix(c(0), ncol = n, nrow = n, sparse=T)
+    mConsist <- Matrix(c(0), ncol = n, nrow = n, sparse=T)
+    ml <- vector(mode = "list", maxK)
+    ml[[1]] <- mCount
     for (k in 2:maxK) {
-        ml[[k]] = mConsist  #initialize
+        ml[[k]] <- mConsist  #initialize with list of sparse Matrix
     }
 
     ## take expression matrix sample, samples and genes
@@ -404,3 +417,22 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
     ml[[1]] <- mCount
     return(ml)
 }  # end eachRep
+
+
+connectivityMatrixPar <- function( clusterAssignments, m, sampleKey){
+  # m is a sparse matrix.
+  ##input: named vector of cluster assignments, matrix to add connectivities
+  ##output: connectivity matrix
+  require(Matrix)
+  names( clusterAssignments ) <- sampleKey
+  cls <- lapply( unique( clusterAssignments ), function(i) as.numeric( names( clusterAssignments[ clusterAssignments %in% i ] ) ) )  #list samples by clusterId
+
+  for ( i in 1:length( cls ) ) {
+    nelts <- 1:ncol( m )
+    cl <- as.numeric( nelts %in% cls[[i]] ) ## produces a binary vector
+    updt <- outer( cl, cl ) #product of arrays with * function; with above indicator (1/0) statement updates all cells to indicate the sample pair was observed int the same cluster;
+    updt <- Matrix(updt, sparse=T)
+    m <- m + updt
+  }
+  return(m)
+}
