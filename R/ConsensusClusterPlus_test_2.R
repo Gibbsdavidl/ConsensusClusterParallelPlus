@@ -504,7 +504,7 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
     # ml is a matrix of nodes x nodes
     # where the element is 1 if both nodes are in the same assignment
     # fill up matrices of ml using resKs
-    for (ki in 2:k) {
+    for (ki in 2:maxK) {
         for (ix in 1:length(sample_x)) {
             for (jx in 1:length(sample_x)) {
                 if (resKs[[ki]][ix] == resKs[[ki]][jx]) { # in the same cluster
