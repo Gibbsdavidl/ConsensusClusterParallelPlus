@@ -361,8 +361,12 @@ ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = 
         # do a set of clusterings
         parRes <- mclapply(X = 1:repCount, FUN = function(xi) {
             eachRep(xi, d, pItem, pFeature, weightsItem, weightsFeature, main.dist.obj,
-                clusterAlg, distance, innerLinkage, maxK, verbose, mConsist, ml)
+                clusterAlg, distance, innerLinkage, maxK, verbose)
         }, mc.cores = coreCount)
+
+        if (returnML) {
+            return(parRes)
+        }
 
         # then extract and sum up the list
         for (lp in 1:coreCount) {
@@ -378,7 +382,6 @@ ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = 
         parRes <- NULL
         gc()
     }
-
 
     ## consensus fraction
     res = vector(mode = "list", maxK)
@@ -396,15 +399,15 @@ ccRun <- function(d = d, maxK = NULL, repCount = NULL, coreCount = NULL, diss = 
 
 
 eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dist.obj,
-    clusterAlg, distance, innerLinkage, maxK, verbose, mConsist, ml) {
+    clusterAlg, distance, innerLinkage, maxK, verbose) {
 
     require(fastcluster)
 
     resKs <- list()
 
-    n <- ifelse(diss, ncol(as.matrix(d)), ncol(d))
+    n <- ifelse(d, ncol(as.matrix(d)), ncol(d))
     mCount = mConsist = matrix(c(0), ncol = n, nrow = n)
-
+    ml = vector(mode = "list", maxK)
     ml[[1]] = c(0)
     for (k in 2:maxK) {
         ml[[k]] = mConsist  #initialize
@@ -495,17 +498,17 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
         resKs[[k]] <- this_assignment
     }  # End Ks
 
-    resKs[[1]] <- sample_x
+    resKs[[1]] <- sample_x[[3]]
+    samps <- sample_x[[3]]
 
     # ml is a matrix of nodes x nodes
     # where the element is 1 if both nodes are in the same assignment
     # fill up matrices of ml using resKs
     for (ki in 2:k) {
-        # make matrix
         for (ix in 1:length(sample_x)) {
             for (jx in 1:length(sample_x)) {
                 if (resKs[[ki]][ix] == resKs[[ki]][jx]) { # in the same cluster
-                    ml[[ki]][sample_x[ix], sample_x[jx]] <- 1
+                    ml[[ki]][samps[ix], samps[jx]] <- 1
                 }
             }
         }
@@ -513,9 +516,9 @@ eachRep <- function(i, d, pItem, pFeature, weightsItem, weightsFeature, main.dis
 
     # fill up mCount matrix using resK[[1]] or sample_x
     # scale the mCount matrix by k
-    mCount[sample_x, sample_x] <- k
-
-    return(c(list(mCount), ml))
+    mCount[samps, samps] <- k
+    ml[[1]] <- mCount
+    return(ml)
 }  # end eachRep
 
 
